@@ -27,7 +27,7 @@ do -- Create classes with setters
                   table.insert(self._aliases, name_or_options)
                end
 
-               if not self._name then
+               if not self._aliases or not self._name then
                   self._name = name_or_options
                end
             elseif type(name_or_options) == "table" then
@@ -122,6 +122,14 @@ do -- Create classes with setters
       end
    end
 
+   local function argname(self, value)
+      if type(value) ~= "string" then
+         if type(value) ~= "table" then
+            error(("bad field 'argname' (string or table expected, got %s)"):format(type(value)))
+         end
+      end
+   end
+
    local function add_help(self, param)
       if self._has_help then
          table.remove(self._options)
@@ -149,6 +157,7 @@ do -- Create classes with setters
       _arguments = {},
       _options = {},
       _commands = {},
+      _mutexes = {},
       _require_command = true
    }, {
       name = typecheck.string "name",
@@ -191,7 +200,7 @@ do -- Create classes with setters
       default = typecheck.string "default",
       defmode = typecheck.string "defmode",
       convert = convert,
-      argname = typecheck.string "argname"
+      argname = argname
    })
 
    Option = add_setters(Argument:extends {
@@ -211,28 +220,27 @@ do -- Create classes with setters
       convert = convert,
       overwrite = typecheck.boolean "overwrite",
       action = typecheck["function"] "action",
-      argname = typecheck.string "argname"
+      argname = argname
    })
 end
 
-function Argument:_get_arg_usage(argname)
-   argname = self._argname or argname
+function Argument:_get_argument_list()
    local buf = {}
-   local required_argname = argname
-
-   if self._default and self._defmode:find "a" then
-      required_argname = "[" .. argname .. "]"
-   end
-
    local i = 1
 
    while i <= math.min(self._minargs, 3) do
-      table.insert(buf, required_argname)
+      local argname = self:_get_argname_i(i)
+
+      if self._default and self._defmode:find "a" then
+         argname = "[" .. argname .. "]"
+      end
+
+      table.insert(buf, argname)
       i = i+1
    end
 
    while i <= math.min(self._maxargs, 3) do
-      table.insert(buf, "[" .. argname .. "]")
+      table.insert(buf, "[" .. self:_get_argname_i(i) .. "]")
       i = i+1
 
       if self._maxargs == math.huge then
@@ -248,7 +256,7 @@ function Argument:_get_arg_usage(argname)
 end
 
 function Argument:_get_usage()
-   local usage = table.concat(self:_get_arg_usage("<" .. self._name .. ">"), " ")
+   local usage = table.concat(self:_get_argument_list(), " ")
 
    if self._default and self._defmode:find "u" then
       if self._maxargs > 1 or (self._minargs == 1 and not self._defmode:find "a") then
@@ -279,8 +287,63 @@ function Argument:_get_type()
    end
 end
 
+function Argument:_get_argname_i(i)
+   local argname = self:_get_argname()
+
+   if type(argname) == "table" then
+      return argname[i]
+   else
+      return argname
+   end
+end
+
+function Argument:_get_argname()
+   return self._argname or ("<"..self._name..">")
+end
+
+function Option:_get_argname()
+   return self._argname or ("<"..self:_get_target()..">")
+end
+
+function Argument:_get_label()
+   return self._name
+end
+
+function Option:_get_label()
+   local variants = {}
+   local argument_list = self:_get_argument_list()
+   table.insert(argument_list, 1, nil)
+
+   for _, alias in ipairs(self._aliases) do
+      argument_list[1] = alias
+      table.insert(variants, table.concat(argument_list, " "))
+   end
+
+   return table.concat(variants, ", ")
+end
+
+function Command:_get_label()
+   return table.concat(self._aliases, ", ")
+end
+
+function Argument:_get_description()
+   if self._default then
+      if self._description then
+         return ("%s (default: %s)"):format(self._description, self._default)
+      else
+         return ("default: %s"):format(self._default)
+      end
+   else
+      return self._description or ""
+   end
+end
+
+function Command:_get_description()
+   return self._description or ""
+end
+
 function Option:_get_usage()
-   local usage = self:_get_arg_usage("<" .. self:_get_target() .. ">")
+   local usage = self:_get_argument_list()
    table.insert(usage, 1, self._name)
    usage = table.concat(usage, " ")
 
@@ -362,6 +425,17 @@ function Parser:command(...)
    return command
 end
 
+function Parser:mutex(...)
+   local options = {...}
+
+   for i, option in ipairs(options) do
+      assert(getmetatable(option) == Option, ("bad argument #%d to 'mutex' (Option expected)"):format(i))
+   end
+
+   table.insert(self._mutexes, options)
+   return self
+end
+
 local max_usage_width = 70
 local usage_welcome = "Usage: "
 
@@ -380,9 +454,25 @@ function Parser:get_usage()
       end
    end
 
+   -- set of mentioned elements
+   local used = {}
+
+   for _, mutex in ipairs(self._mutexes) do
+      local buf = {}
+
+      for _, option in ipairs(mutex) do
+         table.insert(buf, option:_get_usage())
+         used[option] = true
+      end
+
+      add("(" .. table.concat(buf, " | ") .. ")")
+   end
+
    for _, elements in ipairs{self._options, self._arguments} do
       for _, element in ipairs(elements) do
-         add(element:_get_usage())
+         if not used[element] then
+            add(element:_get_usage())
+         end
       end
    end
 
@@ -424,32 +514,6 @@ local function make_two_columns(s1, s2)
    end
 end
 
-local function make_description(element)
-   if element._default then
-      if element._description then
-         return ("%s (default: %s)"):format(element._description, element._default)
-      else
-         return ("default: %s"):format(element._default)
-      end
-   else
-      return element._description or ""
-   end
-end
-
-local function make_name(option)
-   local variants = {}
-   local variant
-
-   for _, alias in ipairs(option._aliases) do
-      variant = option:_get_arg_usage("<" .. option:_get_target() .. ">")
-      table.insert(variant, 1, alias)
-      variant = table.concat(variant, " ")
-      table.insert(variants, variant)
-   end
-
-   return table.concat(variants, ", ")
-end
-
 function Parser:get_help()
    if self._help then
       return self._help
@@ -461,34 +525,18 @@ function Parser:get_help()
       table.insert(blocks, self._description)
    end
 
-   if #self._arguments > 0 then
-      local buf = {"Arguments: "}
+   local labels = {"Arguments: ", "Options: ", "Commands: "}
 
-      for _, argument in ipairs(self._arguments) do
-         table.insert(buf, make_two_columns(argument._name, make_description(argument)))
+   for i, elements in ipairs{self._arguments, self._options, self._commands} do
+      if #elements > 0 then
+         local buf = {labels[i]}
+
+         for _, element in ipairs(elements) do
+            table.insert(buf, make_two_columns(element:_get_label(), element:_get_description()))
+         end
+
+         table.insert(blocks, table.concat(buf, "\r\n"))
       end
-
-      table.insert(blocks, table.concat(buf, "\r\n"))
-   end
-
-   if #self._options > 0 then
-      local buf = {"Options: "}
-
-      for _, option in ipairs(self._options) do
-         table.insert(buf, make_two_columns(make_name(option), make_description(option)))
-      end
-
-      table.insert(blocks, table.concat(buf, "\r\n"))
-   end
-
-   if #self._commands > 0 then
-      local buf = {"Commands: "}
-
-      for _, command in ipairs(self._commands) do
-         table.insert(buf, make_two_columns(table.concat(command._aliases, ", "), command._description or ""))
-      end
-
-      table.insert(blocks, table.concat(buf, "\r\n"))
    end
 
    if self._epilog then
@@ -554,20 +602,17 @@ local function plural(x)
    return "s"
 end
 
+local default_cmdline = arg or {}
+
 function Parser:_parse(args, errhandler)
-   args = args or arg
-   local noname
-
-   if not self._name then
-      noname = true
-      self._name = args[0]
-   end
-
+   args = args or default_cmdline
    local parser
    local charset
    local options = {}
    local arguments = {}
    local commands
+   local option_mutexes = {}
+   local used_mutexes = {}
    local opt_context = {}
    local com_context
    local result = {}
@@ -711,6 +756,16 @@ function Parser:_parse(args, errhandler)
          invocations[option] = 0
       end
 
+      for _, mutex in ipairs(parser._mutexes) do
+         for _, option in ipairs(mutex) do
+            if not option_mutexes[option] then
+               option_mutexes[option] = {mutex}
+            else
+               table.insert(option_mutexes[option], mutex)
+            end
+         end
+      end
+
       for _, argument in ipairs(parser._arguments) do
          table.insert(arguments, argument)
          invocations[argument] = 0
@@ -769,6 +824,17 @@ function Parser:_parse(args, errhandler)
       end
 
       cur_option = opt_context[data]
+
+      if option_mutexes[cur_option] then
+         for _, mutex in ipairs(option_mutexes[cur_option]) do
+            if used_mutexes[mutex] and used_mutexes[mutex] ~= cur_option then
+               error_("option '%s' can not be used together with option '%s'", data, used_mutexes[mutex]._name)
+            else
+               used_mutexes[mutex] = cur_option
+            end
+         end
+      end
+
       do_action(cur_option)
       invoke(cur_option)
    end
@@ -869,10 +935,6 @@ function Parser:_parse(args, errhandler)
       end
    end
 
-   if noname then
-      self._name = nil
-   end
-
    return result
 end
 
@@ -907,5 +969,5 @@ function Parser:pparse(args)
 end
 
 return function(...)
-   return Parser():add_help(true)(...)
+   return Parser(default_cmdline[0]):add_help(true)(...)
 end
