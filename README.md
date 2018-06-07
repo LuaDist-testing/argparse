@@ -1,13 +1,23 @@
 # argparse
 
 [![Build Status](https://travis-ci.org/mpeterv/argparse.png?branch=master)](https://travis-ci.org/mpeterv/argparse)
-[![Coverage Status](https://coveralls.io/repos/mpeterv/argparse/badge.svg?branch=master&service=github)](https://coveralls.io/github/mpeterv/argparse?branch=master)
+[![Coverage status](https://codecov.io/gh/mpeterv/argparse/branch/master/graph/badge.svg)](https://codecov.io/gh/mpeterv/argparse)
 
 Argparse is a feature-rich command line parser for Lua inspired by argparse for Python.
 
 Argparse supports positional arguments, options, flags, optional arguments, subcommands and more. Argparse automatically generates usage, help and error messages.
 
-Simple example: 
+## Contents
+
+* [Example](#example)
+* [Installation](#installation)
+* [Tutorial](#tutorial)
+* [Testing](#testing)
+* [License](#license)
+
+## Example
+
+Simple example:
 
 ```lua
 -- script.lua
@@ -19,8 +29,9 @@ parser:option("-o --output", "Output file.", "a.out")
 parser:option("-I --include", "Include locations."):count("*")
 
 local args = parser:parse()
-print(args)  -- Assuming print is patched to handle tables nicely.
 ```
+
+`args` contents depending on command line arguments:
 
 ```bash
 $ lua script.lua foo
@@ -45,6 +56,8 @@ $ lua script.lua foo -I/usr/local/include -Isrc -o bar
    include = {"/usr/local/include", "src"}
 }
 ```
+
+Error messages depending on command line arguments:
 
 ```bash
 $ lua script.lua foo bar
@@ -86,13 +99,6 @@ Usage: script [-o <output>] [-I <include>] [-h] <input>
 Error: unknown option '--outptu'
 Did you mean '--output'?
 ```
-
-## Contents
-
-* [Installation](#installation)
-* [Tutorial](#tutorial)
-* [Testing](#testing)
-* [License](#license)
 
 ## Installation
 

@@ -136,6 +136,16 @@ describe("tests related to options", function()
          assert.same({input = {"bar", "-f", "--foo" , "bar"}}, args)
       end)
 
+      it("allows using -- as an option", function()
+         local parser = Parser()
+         parser:flag "--unrelated"
+         parser:option "--"
+            :args "*"
+            :target "tail"
+         local args = parser:parse{"--", "foo", "--unrelated", "bar"}
+         assert.same({tail = {"foo", "--unrelated", "bar"}}, args)
+      end)
+
       describe("Special chars set", function()
          it("handles windows-style options", function()
             local parser = Parser()
@@ -275,13 +285,17 @@ describe("tests related to options", function()
       it("handles too many arguments correctly", function()
          local parser = Parser()
          parser:option "-s" "--server"
-         assert.has_error(function() parser:parse{"-sfoo", "bar"} end, "too many arguments")
+         assert.has_error(function()
+            parser:parse{"-sfoo", "bar"}
+         end, "too many arguments")
       end)
 
       it("doesn't accept GNU-like long options when it doesn't need arguments", function()
          local parser = Parser()
          parser:flag "-q" "--quiet"
-         assert.has_error(function() parser:parse{"--quiet=very_quiet"} end, "option '--quiet' does not take arguments")
+         assert.has_error(function()
+            parser:parse{"--quiet=very_quiet"}
+         end, "option '--quiet' does not take arguments")
       end)
 
       it("handles too many invocations correctly", function()
@@ -290,7 +304,9 @@ describe("tests related to options", function()
             count = 1,
             overwrite = false
          }
-         assert.has_error(function() parser:parse{"-qq"} end, "option '-q' must be used 1 time")
+         assert.has_error(function()
+            parser:parse{"-qq"}
+         end, "option '-q' must be used 1 time")
       end)
 
       it("handles too few invocations correctly", function()
@@ -298,8 +314,12 @@ describe("tests related to options", function()
          parser:option "-f" "--foo" {
             count = "3-4"
          }
-         assert.has_error(function() parser:parse{"-fFOO", "--foo=BAR"} end, "option '--foo' must be used at least 3 times")
-         assert.has_error(function() parser:parse{} end, "missing option '-f'")
+         assert.has_error(function()
+            parser:parse{"-fFOO", "--foo=BAR"}
+         end, "option '--foo' must be used at least 3 times")
+         assert.has_error(
+            function() parser:parse{}
+         end, "missing option '-f'")
       end)
    end)
 end)
