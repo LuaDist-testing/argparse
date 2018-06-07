@@ -1,16 +1,16 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "argparse"
-version = "0.3.0-1"
+version = "0.3.1-1"
 -- LuaDist source
 source = {
-  tag = "0.3.0-1",
+  tag = "0.3.1-1",
   url = "git://github.com/LuaDist-testing/argparse.git"
 }
 -- Original source
 -- source = {
 --    url = "git://github.com/mpeterv/argparse.git",
---    tag = "0.3.0"
+--    tag = "0.3.1"
 -- }
 description = {
    summary = "A feature-rich command-line argument parser",
@@ -19,8 +19,7 @@ description = {
    license = "MIT/X11"
 }
 dependencies = {
-   "lua >= 5.1, < 5.3",
-   "30log >= 0.9.1"
+   "lua >= 5.1, < 5.4"
 }
 build = {
    type = "builtin",
