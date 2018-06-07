@@ -1,17 +1,9 @@
--- This file was automatically generated for the LuaDist project.
-
 package = "argparse"
-version = "0.3.1-1"
--- LuaDist source
+version = "0.3.2-1"
 source = {
-  tag = "0.3.1-1",
-  url = "git://github.com/LuaDist-testing/argparse.git"
+   url = "git://github.com/mpeterv/argparse.git",
+   tag = "0.3.2"
 }
--- Original source
--- source = {
---    url = "git://github.com/mpeterv/argparse.git",
---    tag = "0.3.1"
--- }
 description = {
    summary = "A feature-rich command-line argument parser",
    detailed = "argparse supports positional arguments, options, flags, optional arguments, subcommands and more. argparse automatically generates usage, help and error messages. ",
