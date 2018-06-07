@@ -1,5 +1,3 @@
-local Parser = require "argparse"
-
 describe("tests related to CLI behaviour #unsafe", function()
    describe("error messages", function()
       it("generates correct error message without arguments", function()
@@ -62,7 +60,7 @@ describe("tests related to CLI behaviour #unsafe", function()
       it("generates correct error message without arguments in command", function()
          local handler = io.popen("./spec/script foo install 2>&1", "r")
          assert.equal(table.concat({
-            "Usage: ./spec/script install [-f <server>] [-h] <rock> [<version>]",
+            "Usage: ./spec/script install [-f <from>] [-h] <rock> [<version>]",
             "",
             "Error: too few arguments",
             ""
@@ -73,7 +71,7 @@ describe("tests related to CLI behaviour #unsafe", function()
       it("generates correct error message and tip in command", function()
          local handler = io.popen("./spec/script foo install bar --form=there 2>&1", "r")
          assert.equal(table.concat({
-            "Usage: ./spec/script install [-f <server>] [-h] <rock> [<version>]",
+            "Usage: ./spec/script install [-f <from>] [-h] <rock> [<version>]",
             "",
             "Error: unknown option '--form'",
             "Did you mean '--from'?",
@@ -108,7 +106,7 @@ describe("tests related to CLI behaviour #unsafe", function()
       it("generates correct help message for command", function()
          local handler = io.popen("./spec/script foo install --help 2>&1", "r")
          assert.equal(table.concat({
-            "Usage: ./spec/script install [-f <server>] [-h] <rock> [<version>]",
+            "Usage: ./spec/script install [-f <from>] [-h] <rock> [<version>]",
             "",
             "Install a rock. ",
             "",
@@ -117,7 +115,7 @@ describe("tests related to CLI behaviour #unsafe", function()
             "   version               Version of the rock. ",
             "",
             "Options: ",
-            "   -f <server>, --from <server>",
+            "   -f <from>, --from <from>",
             "                         Fetch the rock from this server. ",
             "   -h, --help            Show this help message and exit. ",
             "",

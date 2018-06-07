@@ -1,4 +1,5 @@
 local Parser = require "argparse"
+getmetatable(Parser()).error = function(_, msg) error(msg) end
 
 describe("tests related to options", function()
    describe("passing correct options", function()
@@ -14,6 +15,13 @@ describe("tests related to options", function()
          parser:option("-s", "--server")
          local args = parser:parse({"--server", "foo"})
          assert.same({server = "foo"}, args)
+      end)
+
+      it("normalizes default target", function()
+         local parser = Parser()
+         parser:option("--from-server")
+         local args = parser:parse({"--from-server", "foo"})
+         assert.same({from_server = "foo"}, args)
       end)
 
       it("handles non-standard charset", function()

@@ -31,7 +31,7 @@ do -- Create classes with setters
                   self._name = name_or_options
                end
             elseif type(name_or_options) == "table" then
-               for field, setter in pairs(fields) do
+               for field in pairs(fields) do
                   if name_or_options[field] ~= nil then
                      self[field](self, name_or_options[field])
                   end
@@ -191,7 +191,8 @@ do -- Create classes with setters
       _maxargs = 1,
       _mincount = 1,
       _maxcount = 1,
-      _defmode = "unused"
+      _defmode = "unused",
+      _show_default = true
    }, {
       name = typecheck.string "name",
       description = typecheck.string "description",
@@ -200,7 +201,8 @@ do -- Create classes with setters
       default = typecheck.string "default",
       defmode = typecheck.string "defmode",
       convert = convert,
-      argname = argname
+      argname = argname,
+      show_default = typecheck.boolean "show_default"
    })
 
    Option = add_setters(Argument:extends {
@@ -220,7 +222,8 @@ do -- Create classes with setters
       convert = convert,
       overwrite = typecheck.boolean "overwrite",
       action = typecheck["function"] "action",
-      argname = argname
+      argname = argname,
+      show_default = typecheck.boolean "show_default"
    })
 end
 
@@ -229,7 +232,7 @@ function Argument:_get_argument_list()
    local i = 1
 
    while i <= math.min(self._minargs, 3) do
-      local argname = self:_get_argname_i(i)
+      local argname = self:_get_argname(i)
 
       if self._default and self._defmode:find "a" then
          argname = "[" .. argname .. "]"
@@ -240,7 +243,7 @@ function Argument:_get_argument_list()
    end
 
    while i <= math.min(self._maxargs, 3) do
-      table.insert(buf, "[" .. self:_get_argname_i(i) .. "]")
+      table.insert(buf, "[" .. self:_get_argname(i) .. "]")
       i = i+1
 
       if self._maxargs == math.huge then
@@ -287,24 +290,26 @@ function Argument:_get_type()
    end
 end
 
-function Argument:_get_argname_i(i)
-   local argname = self:_get_argname()
+-- Returns placeholder for `narg`-th argument. 
+function Argument:_get_argname(narg)
+   local argname = self._argname or self:_get_default_argname()
 
    if type(argname) == "table" then
-      return argname[i]
+      return argname[narg]
    else
       return argname
    end
 end
 
-function Argument:_get_argname()
-   return self._argname or ("<"..self._name..">")
+function Argument:_get_default_argname()
+   return "<" .. self._name .. ">"
 end
 
-function Option:_get_argname()
-   return self._argname or ("<"..self:_get_target()..">")
+function Option:_get_default_argname()
+   return "<" .. self:_get_default_target() .. ">"
 end
 
+-- Returns label to be shown in the help message. 
 function Argument:_get_label()
    return self._name
 end
@@ -327,7 +332,7 @@ function Command:_get_label()
 end
 
 function Argument:_get_description()
-   if self._default then
+   if self._default and self._show_default then
       if self._description then
          return ("%s (default: %s)"):format(self._description, self._default)
       else
@@ -354,18 +359,22 @@ function Option:_get_usage()
    return usage
 end
 
-function Option:_get_target()
-   if self._target then
-      return self._target
-   end
+function Option:_get_default_target()
+   local res
 
    for _, alias in ipairs(self._aliases) do
       if alias:sub(1, 1) == alias:sub(2, 2) then
-         return alias:sub(3)
+         res = alias:sub(3)
+         break
       end
    end
 
-   return self._name:sub(2)
+   res = res or self._name:sub(2)
+   return (res:gsub("-", "_"))
+end
+
+function Option:_is_vararg()
+   return self._maxargs ~= self._minargs
 end
 
 function Parser:_get_fullname()
@@ -454,25 +463,53 @@ function Parser:get_usage()
       end
    end
 
-   -- set of mentioned elements
-   local used = {}
+   -- This can definitely be refactored into something cleaner
+   local mutex_options = {}
+   local vararg_mutexes = {}
 
+   -- First, put mutexes which do not contain vararg options and remember those which do
    for _, mutex in ipairs(self._mutexes) do
       local buf = {}
+      local is_vararg = false
 
       for _, option in ipairs(mutex) do
+         if option:_is_vararg() then
+            is_vararg = true
+         end
+
          table.insert(buf, option:_get_usage())
-         used[option] = true
+         mutex_options[option] = true
       end
 
-      add("(" .. table.concat(buf, " | ") .. ")")
+      local repr = "(" .. table.concat(buf, " | ") .. ")"
+
+      if is_vararg then
+         table.insert(vararg_mutexes, repr)
+      else
+         add(repr)
+      end
    end
 
-   for _, elements in ipairs{self._options, self._arguments} do
-      for _, element in ipairs(elements) do
-         if not used[element] then
-            add(element:_get_usage())
-         end
+   -- Second, put regular options
+   for _, option in ipairs(self._options) do
+      if not mutex_options[option] and not option:_is_vararg() then
+         add(option:_get_usage())
+      end
+   end
+
+   -- Put positional arguments
+   for _, argument in ipairs(self._arguments) do
+      add(argument:_get_usage())
+   end
+
+   -- Put mutexes containing vararg options
+   for _, mutex_repr in ipairs(vararg_mutexes) do
+      add(mutex_repr)
+   end
+
+   for _, option in ipairs(self._options) do
+      if not mutex_options[option] and option:_is_vararg() then
+         add(option:_get_usage())
       end
    end
 
@@ -602,7 +639,8 @@ local function plural(x)
    return "s"
 end
 
-local default_cmdline = arg or {}
+-- Compatibility with strict.lua and other checkers:
+local default_cmdline = rawget(_G, "arg") or {}
 
 function Parser:_parse(args, errhandler)
    args = args or default_cmdline
@@ -745,7 +783,7 @@ function Parser:_parse(args, errhandler)
          end
 
          local type_ = option:_get_type()
-         targets[option] = option:_get_target()
+         targets[option] = option._target or option:_get_default_target()
 
          if type_ == "counter" then
             result[targets[option]] = 0
@@ -939,12 +977,8 @@ function Parser:_parse(args, errhandler)
 end
 
 function Parser:error(msg)
-   if _TEST then
-      error(msg)
-   else
-      io.stderr:write(("%s\r\n\r\nError: %s\r\n"):format(self:get_usage(), msg))
-      os.exit(1)
-   end
+   io.stderr:write(("%s\r\n\r\nError: %s\r\n"):format(self:get_usage(), msg))
+   os.exit(1)
 end
 
 function Parser:parse(args)
@@ -954,7 +988,7 @@ end
 function Parser:pparse(args)
    local errmsg
    local ok, result = pcall(function()
-      return self:_parse(args, function(parser, err)
+      return self:_parse(args, function(_, err)
          errmsg = err
          return error()
       end)

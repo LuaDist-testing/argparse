@@ -1,7 +1,8 @@
 package = "argparse"
-version = "git-1"
+version = "0.3.0-1"
 source = {
-   url = "git://github.com/mpeterv/argparse.git"
+   url = "git://github.com/mpeterv/argparse.git",
+   tag = "0.3.0"
 }
 description = {
    summary = "A feature-rich command-line argument parser",

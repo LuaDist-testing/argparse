@@ -1,4 +1,5 @@
 local Parser = require "argparse"
+getmetatable(Parser()).error = function(_, msg) error(msg) end
 
 describe("tests related to usage message generation", function()
    it("creates correct usage message for empty parser", function()
@@ -35,7 +36,22 @@ describe("tests related to usage message generation", function()
       parser:option "--config"
 
       assert.equal(
-         [=[Usage: foo [-q] --from <server> [--config <config>]]=],
+         [=[Usage: foo [-q] --from <from> [--config <config>]]=],
+         parser:get_usage()
+      )
+   end)
+
+   it("creates correct usage message for options with variable argument count", function()
+      local parser = Parser "foo"
+         :add_help(false)
+      parser:argument "files"
+         :args "+"
+      parser:flag "-q" "--quiet"
+      parser:option "--globals"
+         :args "*"
+
+      assert.equal(
+         [=[Usage: foo [-q] <files> [<files>] ... [--globals [<globals>] ...]]=],
          parser:get_usage()
       )
    end)
@@ -175,7 +191,7 @@ describe("tests related to usage message generation", function()
 
       assert.equal(table.concat({
          "Usage: foo ([-q] | [-v] | [-i]) ([-l] | [-f <from>])",
-         "       [--yet-another-option <yet-another-option>]"
+         "       [--yet-another-option <yet_another_option>]"
          }, "\r\n"), parser:get_usage()
       )
    end)
