@@ -1,6 +1,7 @@
 # argparse
 
 [![Build Status](https://travis-ci.org/mpeterv/argparse.png?branch=master)](https://travis-ci.org/mpeterv/argparse)
+[![Coverage Status](https://coveralls.io/repos/mpeterv/argparse/badge.svg?branch=master&service=github)](https://coveralls.io/github/mpeterv/argparse?branch=master)
 
 Argparse is a feature-rich command line parser for Lua inspired by argparse for Python.
 
@@ -109,11 +110,13 @@ Download `src/argparse.lua` file and put it into the directory for Lua libraries
 
 ## Tutorial
 
-The tutorial is available [online](http://argparse.readthedocs.org) and in the `doc` directory. If argparse has been installed using LuaRocks 2.1.2 or later, it can be viewed using `luarocks doc argparse` command.
+The tutorial is available [online](http://argparse.readthedocs.org). If argparse has been installed using LuaRocks 2.1.2 or later, it can be viewed using `luarocks doc argparse` command.
+
+Tutorial HTML files can be built using [Sphinx](http://sphinx-doc.org/): `sphinx-build docsrc doc`, the files will be found inside `doc/`.
 
 ## Testing
 
-argparse comes with a testing suite located in `spec` directory. [busted](http://olivinelabs.com/busted/) is required for testing, it can be installed using LuaRocks. Run the tests using `busted spec` command from the argparse folder.
+argparse comes with a testing suite located in `spec` directory. [busted](http://olivinelabs.com/busted/) is required for testing, it can be installed using LuaRocks. Run the tests using `busted` command from the argparse folder.
 
 ## License
 
